@@ -1,0 +1,151 @@
+setwd('/hwfssz5/ST_SUPERCELLS/P20Z10200N0060/lijiming/03_projects/06_SE/03_clustering')
+
+rm(list=ls())
+library(Seurat)
+library(patchwork)
+#dir.create('figures')
+set.seed(128)  #设置随机数种子，使结果可重复
+
+# options(future.globals.maxSize = 5 * 1024^3)
+
+##==合并数据集==##
+#使用merge函数合并seurat对象
+
+
+dir <- c(
+        '/hwfssz5/ST_SUPERCELLS/P20Z10200N0060/lijiming/03_projects/06_SE/01_matrix/LEC2_MP_60h_1_web_1/04.Matrix/FilterMatrix',
+        '/hwfssz5/ST_SUPERCELLS/P20Z10200N0060/lijiming/03_projects/06_SE/01_matrix/LEC2_MP_60h_2_web_1/04.Matrix/FilterMatrix',
+        '/hwfssz5/ST_SUPERCELLS/P20Z10200N0060/lijiming/03_projects/06_SE/01_matrix/LEC2_MP_72h_1_web_1/04.Matrix/FilterMatrix',
+        '/hwfssz5/ST_SUPERCELLS/P20Z10200N0060/lijiming/03_projects/06_SE/01_matrix/LEC2_MP_72h_2_web_1/04.Matrix/FilterMatrix',
+        '/hwfssz5/ST_SUPERCELLS/P20Z10200N0060/lijiming/03_projects/06_SE/01_matrix/LEC2_MP_84h_1_web_1/04.Matrix/FilterMatrix',
+        '/hwfssz5/ST_SUPERCELLS/P20Z10200N0060/lijiming/03_projects/06_SE/01_matrix/LEC2_MP_84h_2_web_1/04.Matrix/FilterMatrix',
+        '/hwfssz5/ST_SUPERCELLS/P20Z10200N0060/lijiming/03_projects/06_SE/01_matrix/LEC2_MP_84h_3_web_1/04.Matrix/FilterMatrix',
+        '/hwfssz5/ST_SUPERCELLS/P20Z10200N0060/lijiming/03_projects/06_SE/01_matrix/LEC2_MP_96h_1_web_2/04.Matrix/FilterMatrix',
+        '/hwfssz5/ST_SUPERCELLS/P20Z10200N0060/lijiming/03_projects/06_SE/01_matrix/LEC2_MP_96h_2_web_2/04.Matrix/FilterMatrix',
+        '/hwfssz5/ST_SUPERCELLS/P20Z10200N0060/lijiming/03_projects/06_SE/01_matrix/LEC2_MP_96h_3_web_1/04.Matrix/FilterMatrix',
+        '/hwfssz5/ST_SUPERCELLS/P20Z10200N0060/lijiming/03_projects/06_SE/01_matrix/LEC2_MP_108h_1_web_1/04.Matrix/FilterMatrix',
+        '/hwfssz5/ST_SUPERCELLS/P20Z10200N0060/lijiming/03_projects/06_SE/01_matrix/LEC2_MP_108h_2_web_1/04.Matrix/FilterMatrix',
+        '/hwfssz5/ST_SUPERCELLS/P20Z10200N0060/lijiming/03_projects/06_SE/01_matrix/LEC2_MP_108h_3_web_1/04.Matrix/FilterMatrix')
+
+
+
+sample_name <- c('LEC2_MP_60h_1', 'LEC2_MP_60h_2', 'LEC2_MP_72h_1', 'LEC2_MP_72h_2', 'LEC2_MP_84h_1', 'LEC2_MP_84h_2', 'LEC2_MP_84h_3',
+        'LEC2_MP_96h_1', 'LEC2_MP_96h_2', 'LEC2_MP_96h_3', 'LEC2_MP_108h_1', 'LEC2_MP_108h_2', 'LEC2_MP_108h_3')
+date <- c('h60', 'h60', 'h72', 'h72', 'h84', 'h84', 'h84', 'h96', 'h96', 'h96', 'h108', 'h108', 'h108')
+
+
+#以下代码会把每个样本的数据创建一个seurat对象，并存放到列表scRNAlist里
+snRNAlist <- list()
+for(i in 1:length(dir)){
+counts <- Read10X(data.dir = dir[i], gene.column = 1)
+snRNAlist[[i]] <- CreateSeuratObject(counts, project = sample_name[i], min.cells = 3, min.features = 100)
+# include protoplasting-induced genes
+snRNAlist[[i]][['date']] <- date[i]
+}
+
+
+#saveRDS(object = snRNAlist, file = "00_data_raw_20220706.rds")
+
+
+################################################################################################################################3
+#使用merge函数将11个seurat对象合并成一个seurat对象
+# scRNA1 <- readRDS("00_data_raw_20220412.rds")
+
+snRNA1 <- merge(snRNAlist[[1]], y=c(snRNAlist[[2]], snRNAlist[[3]], 
+                snRNAlist[[4]], snRNAlist[[5]], snRNAlist[[6]], snRNAlist[[7]], snRNAlist[[8]], snRNAlist[[9]], snRNAlist[[10]], snRNAlist[[11]], snRNAlist[[12]], snRNAlist[[13]]),
+                add.cell.ids= c('LEC2_MP_60h_1', 'LEC2_MP_60h_2', 'LEC2_MP_72h_1', 'LEC2_MP_72h_2', 'LEC2_MP_84h_1', 'LEC2_MP_84h_2', 'LEC2_MP_84h_3',
+        'LEC2_MP_96h_1', 'LEC2_MP_96h_2', 'LEC2_MP_96h_3', 'LEC2_MP_108h_1', 'LEC2_MP_108h_2', 'LEC2_MP_108h_3'))
+
+#查看基因数和细胞总数
+dim(snRNA1) 
+# [1]  32535 155262
+
+
+#查看每个样本的细胞数
+tb1 <- table(snRNA1@meta.data$orig.ident)  
+write.csv(tb1,'01_SE_cell_number_per_sample_raw.csv', row.names = T)
+
+head(snRNA1@meta.data)
+
+
+# Visualize QC metrics as a violin plot
+v1 <- VlnPlot(snRNA1, features = c("nFeature_RNA", "nCount_RNA"), slot = "data", pt.size = 0, ncol = 2)
+
+pdf("QC_metrics_raw.pdf", width=12, height =4)
+v1
+dev.off()
+
+saveRDS(object = snRNA1, file = "01_data_raw_merge_rds.rds")
+#################################################################################################################################3
+
+# filtering
+
+snRNA2 <- subset(x = snRNA1, 
+                         subset= (nFeature_RNA > 200) & 
+                           (nFeature_RNA < 5000))
+
+v2 <- VlnPlot(snRNA2, features = c("nFeature_RNA", "nCount_RNA"), slot = "data", pt.size = 0, ncol = 2)
+
+pdf("QC_metrics_filtered.pdf", width=12, height =4)
+v2
+dev.off()
+
+
+#查看基因数和细胞总数
+dim(snRNA2) 
+# [1] 24970 33997
+
+head(snRNA2@meta.data)
+
+#查看每个样本的细胞数
+tb2 <- table(snRNA2@meta.data$orig.ident)   
+write.csv(tb2,'02_SE_cell_number_per_sample_filtered.csv',row.names = T)
+
+tb3 <- table(snRNA2@meta.data$date)  
+write.csv(tb3,'03_SEcell_number_per_timePoint_filtered.csv',row.names = T)
+
+saveRDS(object = snRNA2, file = "01_merged_filtered_rds.rds")
+
+
+
+##################################################################################################################
+scRNA1.list <- SplitObject(snRNA2, split.by = "date")
+
+#1.多个样本-标准方法 
+##SCTransform 是新版 Seurat 推荐的方法，可以替代 NormalizeData、FindVariableFeatures、ScaleData
+for(i in 1:length(scRNA1.list)){
+    scRNA1.list[[i]] <- SCTransform(
+      scRNA1.list[[i]], 
+      variable.features.n = 3000,
+      assay = "RNA",
+      verbose = FALSE) 
+}
+
+# 2. 数据整合（Integration）
+## 选择要用于整合的基因
+features <- SelectIntegrationFeatures(object.list = scRNA1.list,
+                                      nfeatures = 3000)
+
+seob_list <- scRNA1.list
+
+## 准备整合
+seob_list <- PrepSCTIntegration(object.list = seob_list, 
+                                    anchor.features = features)
+
+
+## 找 anchors
+anchors <- FindIntegrationAnchors(object.list = seob_list, 
+                                  # reference = 3 # 当有多个样本时，制定一个作为参考可加快速度
+                                  normalization.method = "SCT",
+                                  anchor.features = features,
+                                  k.anchor =1
+                                  )
+
+## 整合数据
+seob <- IntegrateData(anchorset = anchors, 
+                      normalization.method = "SCT")
+
+DefaultAssay(seob) <- "integrated"
+
+## 保存数据
+saveRDS(object = seob, file = "01_integrated.rds")
