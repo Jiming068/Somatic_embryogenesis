@@ -1,3 +1,4 @@
+# R script for figure 6A
 setwd('/hwfssz5/ST_SUPERCELLS/P20Z10200N0060/lijiming/03_projects/06_SE/03_clustering')
 
 rm(list=ls())
